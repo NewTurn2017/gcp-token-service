@@ -6,7 +6,8 @@
       "mcp__context7__get-library-docs",
       "Bash(git push:*)",
       "Bash(chmod:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

@@ -11,8 +11,19 @@ Google Cloud Functions를 사용하여 Veo 3.0 API 토큰을 자동으로 갱신
 
 ## 🚀 빠른 시작
 
-Cloud Shell 또는 로컬 터미널에서 실행:
+### 방법 1: 다운로드 후 실행 (권장)
+```bash
+curl -o setup.sh https://raw.githubusercontent.com/NewTurn2017/gcp-token-service/main/setup-cloud-function-interactive.sh
+chmod +x setup.sh
+./setup.sh
+```
 
+### 방법 2: 빠른 설치 스크립트
+```bash
+curl -sL https://raw.githubusercontent.com/NewTurn2017/gcp-token-service/main/quick-setup.sh | bash
+```
+
+### 방법 3: 파이프 실행 (일부 환경에서 입력 문제 발생 가능)
 ```bash
 curl -sL https://raw.githubusercontent.com/NewTurn2017/gcp-token-service/main/setup-cloud-function.sh | bash
 ```

@@ -16,8 +16,8 @@ echo "준비물:"
 echo "• Google Cloud 프로젝트"
 echo "• Google Sheets 계정"
 echo ""
-echo "시작하려면 Enter를 누르세요..."
-read
+echo -n "시작하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 색상 코드
 RED='\033[0;31m'
@@ -26,8 +26,20 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# TTY 리다이렉션으로 대화형 입력 활성화
-exec < /dev/tty
+# 대화형 입력을 위한 설정
+# stdin이 터미널이 아닌 경우 처리
+if [ ! -t 0 ]; then
+    # 파이프로 실행된 경우 /dev/tty 사용
+    exec < /dev/tty || {
+        echo -e "${RED}❌ 대화형 입력이 지원되지 않는 환경입니다.${NC}"
+        echo "다음 명령으로 스크립트를 다운로드 후 실행하세요:"
+        echo ""
+        echo "curl -o setup.sh https://raw.githubusercontent.com/NewTurn2017/gcp-token-service/main/setup-cloud-function-interactive.sh"
+        echo "chmod +x setup.sh"
+        echo "./setup.sh"
+        exit 1
+    }
+fi
 
 # 1. 프로젝트 ID 확인 또는 입력
 echo "📋 Step 1: Google Cloud 프로젝트 설정"
@@ -39,7 +51,7 @@ CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
 if [ ! -z "$CURRENT_PROJECT" ]; then
     echo -e "현재 설정된 프로젝트: ${GREEN}$CURRENT_PROJECT${NC}"
     echo -n "이 프로젝트를 사용하시겠습니까? (Y/n): "
-    read USE_CURRENT
+    read -r USE_CURRENT
     if [[ ! "$USE_CURRENT" =~ ^[Nn]$ ]]; then
         PROJECT_ID=$CURRENT_PROJECT
     fi
@@ -51,7 +63,7 @@ if [ -z "$PROJECT_ID" ]; then
     echo -e "${YELLOW}Google Cloud 프로젝트 ID를 입력하세요:${NC}"
     echo "프로젝트 ID는 Google Cloud Console에서 확인할 수 있습니다."
     echo -n "Project ID: "
-    read PROJECT_ID
+    read -r PROJECT_ID
     
     if [ -z "$PROJECT_ID" ]; then
         echo -e "${RED}❌ 프로젝트 ID가 필요합니다${NC}"
@@ -66,8 +78,8 @@ fi
 echo ""
 echo -e "${GREEN}✅ 프로젝트 설정 완료: $PROJECT_ID${NC}"
 echo ""
-echo "다음 단계로 진행하려면 Enter를 누르세요..."
-read
+echo -n "다음 단계로 진행하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 2. 리전 설정
 REGION="us-central1"
@@ -101,8 +113,8 @@ gcloud services enable \
 
 echo -e "${GREEN}✅ API 활성화 완료${NC}"
 echo ""
-echo "다음 단계로 진행하려면 Enter를 누르세요..."
-read
+echo -n "다음 단계로 진행하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 4. 서비스 계정 생성
 echo ""
@@ -150,8 +162,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 echo -e "${GREEN}✅ 권한 부여 완료${NC}"
 echo ""
-echo "다음 단계로 진행하려면 Enter를 누르세요..."
-read
+echo -n "다음 단계로 진행하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 6. 서비스 계정 키 생성
 echo ""
@@ -200,7 +212,7 @@ echo "   https://docs.google.com/spreadsheets/d/${YELLOW}이_부분이_ID입니�
 echo ""
 echo "위 단계를 완료하셨으면,"
 echo -n "스프레드시트 ID를 입력하세요: "
-read SPREADSHEET_ID
+read -r SPREADSHEET_ID
 
 if [ -z "$SPREADSHEET_ID" ]; then
     echo -e "${RED}❌ 스프레드시트 ID가 필요합니다${NC}"
@@ -211,8 +223,8 @@ echo ""
 echo -e "${GREEN}✅ 스프레드시트 설정 완료${NC}"
 echo "ID: $SPREADSHEET_ID"
 echo ""
-echo "다음 단계로 진행하려면 Enter를 누르세요..."
-read
+echo -n "다음 단계로 진행하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 8. Cloud Function 소스 코드 다운로드
 echo ""
@@ -289,8 +301,8 @@ echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
 echo ""
 echo -e "${GREEN}✅ 테스트 완료${NC}"
 echo ""
-echo "다음 단계로 진행하려면 Enter를 누르세요..."
-read
+echo -n "다음 단계로 진행하려면 Enter를 누르세요..."
+read -r DUMMY_VAR
 
 # 11. Cloud Scheduler 설정
 echo ""
