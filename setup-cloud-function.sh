@@ -74,6 +74,7 @@ gcloud services enable \
     iam.googleapis.com \
     sheets.googleapis.com \
     serviceusage.googleapis.com \
+    compute.googleapis.com \
     --quiet
 
 echo -e "${GREEN}✅ API 활성화 완료${NC}"
@@ -188,10 +189,32 @@ echo ""
 
 # 9. Cloud Function 배포
 echo "☁️  Cloud Function 배포 중..."
-FUNCTION_NAME="veo-token-updater"
 
-# 서비스 계정 JSON을 base64로 인코딩하여 특수 문자 문제 해결
-SERVICE_ACCOUNT_JSON_BASE64=$(echo "$SERVICE_ACCOUNT_JSON" | base64 -w 0)
+# 기본 서비스 계정 확인 및 생성
+echo "기본 서비스 계정 확인 중..."
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
+DEFAULT_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+# 기본 서비스 계정이 없으면 Compute Engine을 한 번 실행하여 생성
+if ! gcloud iam service-accounts describe $DEFAULT_SERVICE_ACCOUNT >/dev/null 2>&1; then
+    echo "기본 서비스 계정 생성 중..."
+    # 임시 인스턴스 생성 시도 (실패해도 서비스 계정은 생성됨)
+    gcloud compute instances create temp-init \
+        --zone=${REGION}-a \
+        --machine-type=f1-micro \
+        --max-run-duration=1s \
+        --quiet 2>/dev/null || true
+    
+    # 인스턴스가 생성되었다면 삭제
+    gcloud compute instances delete temp-init \
+        --zone=${REGION}-a \
+        --quiet 2>/dev/null || true
+    
+    # 서비스 계정 생성 대기
+    sleep 10
+fi
+
+FUNCTION_NAME="veo-token-updater"
 
 # 환경 변수 파일 생성
 ENV_FILE="/tmp/cloud-function-env.yaml"
@@ -209,6 +232,7 @@ gcloud functions deploy $FUNCTION_NAME \
     --trigger-http \
     --allow-unauthenticated \
     --env-vars-file=$ENV_FILE \
+    --service-account=$SERVICE_ACCOUNT_EMAIL \
     --memory=256MB \
     --timeout=60s \
     --quiet

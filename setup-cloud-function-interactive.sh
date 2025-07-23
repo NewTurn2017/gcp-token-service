@@ -107,6 +107,7 @@ echo "• Cloud Build"
 echo "• Cloud Scheduler"
 echo "• Vertex AI"
 echo "• Google Sheets"
+echo "• Compute Engine"
 echo ""
 echo "활성화 중... (약 1-2분 소요)"
 
@@ -118,6 +119,7 @@ gcloud services enable \
     iam.googleapis.com \
     sheets.googleapis.com \
     serviceusage.googleapis.com \
+    compute.googleapis.com \
     --quiet
 
 echo -e "${GREEN}✅ API 활성화 완료${NC}"
@@ -264,6 +266,41 @@ echo "이제 Cloud Function을 배포합니다."
 echo "이 과정은 약 2-3분 정도 소요됩니다..."
 echo ""
 
+# Compute Engine API 활성화 및 기본 서비스 계정 생성
+echo "기본 서비스 계정 확인 중..."
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
+DEFAULT_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+# Compute Engine API 활성화 (기본 서비스 계정 자동 생성)
+gcloud services enable compute.googleapis.com --quiet
+
+# 잠시 대기 (API 활성화 및 서비스 계정 생성 시간)
+echo "서비스 초기화 중... (약 30초)"
+sleep 30
+
+# 기본 서비스 계정이 생성되었는지 확인
+if ! gcloud iam service-accounts describe $DEFAULT_SERVICE_ACCOUNT >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  기본 서비스 계정이 아직 생성되지 않았습니다.${NC}"
+    echo "Compute Engine을 한 번 실행하여 계정을 생성합니다..."
+    
+    # 임시 인스턴스 생성하여 기본 서비스 계정 강제 생성
+    gcloud compute instances create temp-instance \
+        --zone=${REGION}-a \
+        --machine-type=f1-micro \
+        --quiet || true
+    
+    # 인스턴스 즉시 삭제
+    gcloud compute instances delete temp-instance \
+        --zone=${REGION}-a \
+        --quiet || true
+    
+    echo "추가 대기 중... (약 30초)"
+    sleep 30
+fi
+
+echo -e "${GREEN}✅ 서비스 계정 준비 완료${NC}"
+echo ""
+
 FUNCTION_NAME="veo-token-updater"
 
 # 환경 변수 파일 생성 (특수 문자 문제 해결)
@@ -283,6 +320,7 @@ gcloud functions deploy $FUNCTION_NAME \
     --trigger-http \
     --allow-unauthenticated \
     --env-vars-file=$ENV_FILE \
+    --service-account=$SERVICE_ACCOUNT_EMAIL \
     --memory=256MB \
     --timeout=60s \
     --quiet
