@@ -55,16 +55,14 @@ gcloud iam service-accounts keys create ~/veo-key.json \
 pip3 install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 ```
 
-### 4. 스크립트 다운로드 및 설정
+### 4. 스크립트 다운로드
 
 ```bash
 # 스크립트 다운로드
 curl -o ~/update-token-to-sheets.py \
   https://raw.githubusercontent.com/NewTurn2017/gcp-token-service/main/update-token-to-sheets.py
 
-# 스프레드시트 ID 설정
-nano ~/update-token-to-sheets.py
-# SPREADSHEET_ID를 실제 ID로 변경
+chmod +x ~/update-token-to-sheets.py
 ```
 
 ### 5. Google Sheets 공유
@@ -75,10 +73,26 @@ nano ~/update-token-to-sheets.py
 4. 편집자 권한 부여
 5. "무시하고 공유" 클릭
 
-### 6. 테스트 실행
+### 6. 실행 방법
 
+#### 처음 실행 (대화형 모드)
 ```bash
 python3 ~/update-token-to-sheets.py
+```
+
+#### 옵션 사용
+```bash
+# 스프레드시트 ID 직접 지정
+python3 ~/update-token-to-sheets.py --spreadsheet-id YOUR_SHEET_ID
+
+# 다른 키 파일 사용
+python3 ~/update-token-to-sheets.py --key-file /path/to/key.json
+
+# 스프레드시트 ID 저장
+python3 ~/update-token-to-sheets.py --save
+
+# 저장된 설정 확인
+python3 ~/update-token-to-sheets.py --show-config
 ```
 
 ### 7. Cron 작업 설정 (자동 갱신)

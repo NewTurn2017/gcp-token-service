@@ -112,29 +112,18 @@ chmod +x ~/update-token-to-sheets.py
 echo "✅ 스크립트 다운로드 완료"
 echo ""
 
-# 7. Google Sheets 설정 안내
-echo "7️⃣ Google Sheets 설정"
+# 7. 테스트 실행
+echo "7️⃣ 설정 및 테스트"
 echo "================================="
-echo "1. Google Sheets에서 새 스프레드시트 생성"
-echo "2. 스프레드시트 URL에서 ID 복사"
-echo "   예: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit"
+echo "스크립트가 Google Sheets ID를 입력받도록 대화형으로 실행됩니다."
 echo ""
-echo "3. 스프레드시트 공유:"
-echo "   - '공유' 버튼 클릭"
-echo "   - 이메일 입력: $SERVICE_ACCOUNT_EMAIL"
-echo "   - 권한: '편집자'"
-echo "   - '무시하고 공유' 클릭"
-echo ""
-echo "4. 스프레드시트 ID 입력:"
-read -p "스프레드시트 ID: " SPREADSHEET_ID
-
-# 스프레드시트 ID 업데이트
-sed -i "s/SPREADSHEET_ID = .*/SPREADSHEET_ID = '$SPREADSHEET_ID'/" ~/update-token-to-sheets.py
-echo "✅ 스프레드시트 ID 설정 완료"
+echo "Google Sheets 준비:"
+echo "1. 새 스프레드시트 생성: https://sheets.google.com"
+echo "2. 공유 → 서비스 계정 이메일($SERVICE_ACCOUNT_EMAIL) 추가 → 편집자 권한"
+echo "3. URL에서 ID 복사"
 echo ""
 
-# 8. 테스트 실행
-echo "8️⃣ 토큰 생성 테스트..."
+# 대화형 모드로 실행
 python3 ~/update-token-to-sheets.py
 
 echo ""
