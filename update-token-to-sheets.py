@@ -43,10 +43,10 @@ def update_sheet(token):
         # 실패하면 기본값 사용
         range_name = 'A1:B2'
     
-    # 업데이트할 데이터
+    # 업데이트할 데이터 (헤더와 값을 행으로 배치)
     values = [
-        ['Last Updated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
-        ['Access Token', token]
+        ['Last Updated', 'Access Token'],  # 헤더 (A1, B1)
+        [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), token]  # 값 (A2, B2)
     ]
     
     body = {'values': values}
@@ -73,9 +73,12 @@ def main():
         
         # n8n용 사용법 출력
         print("\n=== n8n에서 사용하기 ===")
-        print(f"1. Google Sheets에서 B2 셀의 토큰 읽기")
+        print(f"1. Google Sheets에서 B2 셀의 토큰 읽기 (Access Token 열의 값)")
         print(f"2. 스프레드시트 URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}")
         print(f"3. 토큰은 1시간마다 자동 갱신됩니다")
+        print("\n=== 시트 구조 ===")
+        print("A1: Last Updated  |  B1: Access Token")
+        print("A2: (업데이트 시간) |  B2: (토큰 값)")
         
     except Exception as e:
         print(f"오류 발생: {e}")
