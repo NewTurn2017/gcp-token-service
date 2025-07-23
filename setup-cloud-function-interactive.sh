@@ -19,12 +19,21 @@ echo ""
 echo -n "시작하려면 Enter를 누르세요..."
 read -r DUMMY_VAR
 
-# 색상 코드
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# 색상 코드 (터미널이 지원하는 경우에만 사용)
+if [ -t 1 ] && [ "${TERM}" != "dumb" ] && command -v tput >/dev/null 2>&1; then
+    RED=$(tput setaf 1)
+    GREEN=$(tput setaf 2)
+    YELLOW=$(tput setaf 3)
+    BLUE=$(tput setaf 4)
+    NC=$(tput sgr0)
+else
+    # 색상을 지원하지 않는 경우 빈 문자열 사용
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
 
 # 대화형 입력을 위한 설정
 # stdin이 터미널이 아닌 경우 처리
@@ -194,21 +203,21 @@ echo ""
 echo "📝 다음 단계를 따라주세요:"
 echo ""
 echo "1️⃣  새 브라우저 탭에서 Google Sheets 열기:"
-echo "   ${BLUE}https://sheets.google.com${NC}"
+echo -e "   ${BLUE}https://sheets.google.com${NC}"
 echo ""
 echo "2️⃣  '빈 스프레드시트' 클릭하여 새 시트 생성"
 echo ""
 echo "3️⃣  상단의 '공유' 버튼 클릭"
 echo ""
 echo "4️⃣  다음 이메일을 복사해서 입력:"
-echo "   ${GREEN}${SERVICE_ACCOUNT_EMAIL}${NC}"
+echo -e "   ${GREEN}${SERVICE_ACCOUNT_EMAIL}${NC}"
 echo ""
 echo "5️⃣  권한을 '편집자'로 설정"
 echo ""
 echo "6️⃣  '무시하고 공유' 클릭 (경고가 나타나면)"
 echo ""
 echo "7️⃣  URL에서 스프레드시트 ID 복사:"
-echo "   https://docs.google.com/spreadsheets/d/${YELLOW}이_부분이_ID입니다${NC}/edit"
+echo -e "   https://docs.google.com/spreadsheets/d/${YELLOW}이_부분이_ID입니다${NC}/edit"
 echo ""
 echo "위 단계를 완료하셨으면,"
 echo -n "스프레드시트 ID를 입력하세요: "

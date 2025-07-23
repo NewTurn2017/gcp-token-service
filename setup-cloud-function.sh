@@ -7,11 +7,19 @@ echo "🚀 Cloud Functions 기반 Veo 토큰 시스템 설치"
 echo "============================================"
 echo ""
 
-# 색상 코드
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# 색상 코드 (터미널이 지원하는 경우에만 사용)
+if [ -t 1 ] && [ "${TERM}" != "dumb" ] && command -v tput >/dev/null 2>&1; then
+    RED=$(tput setaf 1)
+    GREEN=$(tput setaf 2)
+    YELLOW=$(tput setaf 3)
+    NC=$(tput sgr0)
+else
+    # 색상을 지원하지 않는 경우 빈 문자열 사용
+    RED=''
+    GREEN=''
+    YELLOW=''
+    NC=''
+fi
 
 # TTY 리다이렉션으로 대화형 입력 활성화
 exec < /dev/tty
