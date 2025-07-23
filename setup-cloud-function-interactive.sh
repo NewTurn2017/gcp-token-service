@@ -266,39 +266,48 @@ echo "이제 Cloud Function을 배포합니다."
 echo "이 과정은 약 2-3분 정도 소요됩니다..."
 echo ""
 
-# Compute Engine API 활성화 및 기본 서비스 계정 생성
-echo "기본 서비스 계정 확인 중..."
+# Cloud Function 배포를 위한 준비
+echo "서비스 설정 확인 중..."
+
+# Compute Engine API 활성화
+gcloud services enable compute.googleapis.com --quiet
+
+# Cloud Functions에서 사용할 서비스 계정 확인
+echo ""
+echo -e "${YELLOW}📌 중요: Cloud Functions는 서비스 계정이 필요합니다.${NC}"
+echo ""
+
+# 프로젝트 번호 가져오기
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
 DEFAULT_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-# Compute Engine API 활성화 (기본 서비스 계정 자동 생성)
-gcloud services enable compute.googleapis.com --quiet
-
-# 잠시 대기 (API 활성화 및 서비스 계정 생성 시간)
-echo "서비스 초기화 중... (약 30초)"
-sleep 30
-
-# 기본 서비스 계정이 생성되었는지 확인
-if ! gcloud iam service-accounts describe $DEFAULT_SERVICE_ACCOUNT >/dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️  기본 서비스 계정이 아직 생성되지 않았습니다.${NC}"
-    echo "Compute Engine을 한 번 실행하여 계정을 생성합니다..."
+# 기본 서비스 계정 상태 확인
+echo "기본 서비스 계정 확인 중..."
+if gcloud iam service-accounts describe $DEFAULT_SERVICE_ACCOUNT >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ 기본 서비스 계정이 존재합니다${NC}"
+    USE_DEFAULT_SA=true
+else
+    echo -e "${YELLOW}⚠️  기본 서비스 계정을 사용할 수 없습니다.${NC}"
+    echo "이미 생성한 Veo 서비스 계정을 사용합니다."
+    USE_DEFAULT_SA=false
     
-    # 임시 인스턴스 생성하여 기본 서비스 계정 강제 생성
-    gcloud compute instances create temp-instance \
-        --zone=${REGION}-a \
-        --machine-type=f1-micro \
+    # Veo 서비스 계정에 추가 권한 부여
+    echo "Cloud Functions 실행을 위한 추가 권한 부여 중..."
+    
+    # Cloud Functions Service Agent 역할 추가
+    gcloud projects add-iam-policy-binding $PROJECT_ID \
+        --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+        --role="roles/cloudfunctions.serviceAgent" \
         --quiet || true
     
-    # 인스턴스 즉시 삭제
-    gcloud compute instances delete temp-instance \
-        --zone=${REGION}-a \
+    # Cloud Build Service Account 역할 추가
+    gcloud projects add-iam-policy-binding $PROJECT_ID \
+        --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+        --role="roles/cloudbuild.builds.builder" \
         --quiet || true
-    
-    echo "추가 대기 중... (약 30초)"
-    sleep 30
 fi
 
-echo -e "${GREEN}✅ 서비스 계정 준비 완료${NC}"
+echo -e "${GREEN}✅ 서비스 설정 완료${NC}"
 echo ""
 
 FUNCTION_NAME="veo-token-updater"
@@ -311,19 +320,55 @@ SPREADSHEET_ID: '$SPREADSHEET_ID'
 EOF
 
 echo "배포 중..."
-gcloud functions deploy $FUNCTION_NAME \
-    --gen2 \
-    --runtime=python311 \
-    --region=$REGION \
-    --source=$TEMP_DIR \
-    --entry-point=update_token \
-    --trigger-http \
-    --allow-unauthenticated \
-    --env-vars-file=$ENV_FILE \
-    --service-account=$SERVICE_ACCOUNT_EMAIL \
-    --memory=256MB \
-    --timeout=60s \
-    --quiet
+
+# 기본 서비스 계정 사용 가능 여부에 따라 다르게 배포
+if [ "$USE_DEFAULT_SA" = true ]; then
+    # 기본 서비스 계정으로 배포
+    gcloud functions deploy $FUNCTION_NAME \
+        --gen2 \
+        --runtime=python311 \
+        --region=$REGION \
+        --source=$TEMP_DIR \
+        --entry-point=update_token \
+        --trigger-http \
+        --allow-unauthenticated \
+        --env-vars-file=$ENV_FILE \
+        --memory=256MB \
+        --timeout=60s \
+        --quiet
+else
+    # Veo 서비스 계정으로 배포 (명시적 지정)
+    gcloud functions deploy $FUNCTION_NAME \
+        --gen2 \
+        --runtime=python311 \
+        --region=$REGION \
+        --source=$TEMP_DIR \
+        --entry-point=update_token \
+        --trigger-http \
+        --allow-unauthenticated \
+        --env-vars-file=$ENV_FILE \
+        --service-account=$SERVICE_ACCOUNT_EMAIL \
+        --run-service-account=$SERVICE_ACCOUNT_EMAIL \
+        --memory=256MB \
+        --timeout=60s \
+        --quiet || {
+        echo ""
+        echo -e "${RED}❌ Cloud Function 배포 실패${NC}"
+        echo ""
+        echo "가능한 해결 방법:"
+        echo "1. Cloud Console에서 Compute Engine API를 한 번 방문해보세요:"
+        echo "   https://console.cloud.google.com/compute/instances?project=$PROJECT_ID"
+        echo ""
+        echo "2. 다음 명령으로 기본 서비스 계정을 수동으로 생성해보세요:"
+        echo "   gcloud beta services identity create --service=compute.googleapis.com"
+        echo ""
+        echo "3. 그래도 안 되면 Cloud Shell에서 다음 명령을 실행하세요:"
+        echo "   gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+        echo "     --member=\"serviceAccount:${SERVICE_ACCOUNT_EMAIL}\" \\"
+        echo "     --role=\"roles/iam.serviceAccountUser\""
+        exit 1
+    }
+fi
 
 # 임시 환경 변수 파일 삭제
 rm -f $ENV_FILE
