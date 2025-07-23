@@ -37,9 +37,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --role="roles/aiplatform.user" --quiet
 
 # Vertex AI 고급 기능을 위한 추가 권한
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:${COMPUTE_SA}" \
-  --role="roles/aiplatform.predictor" --quiet
+# roles/aiplatform.predictor는 프로젝트 레벨에서 지원되지 않으므로 제거
 
 # Cloud Run 기본 서비스 계정에도 동일한 권한 부여
 gcloud projects add-iam-policy-binding $PROJECT_ID \

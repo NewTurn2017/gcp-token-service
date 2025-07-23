@@ -54,10 +54,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --role="roles/aiplatform.user" \
     --quiet
 
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-    --member="serviceAccount:${COMPUTE_SA}" \
-    --role="roles/aiplatform.predictor" \
-    --quiet
+# roles/aiplatform.predictor는 프로젝트 레벨에서 지원되지 않음
+# aiplatform.user 권한만으로도 충분함
 
 gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:${COMPUTE_SA}" \
@@ -88,10 +86,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --role="roles/aiplatform.user" \
     --quiet || true
 
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-    --member="serviceAccount:${CLOUDRUN_SA}" \
-    --role="roles/aiplatform.predictor" \
-    --quiet || true
+# roles/aiplatform.predictor는 프로젝트 레벨에서 지원되지 않음
 
 echo "✅ IAM 권한 설정 완료"
 echo ""
