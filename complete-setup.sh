@@ -296,8 +296,8 @@ REGION="us-central1"
 # 기존 함수 삭제
 gcloud functions delete $FUNCTION_NAME --region=$REGION --quiet 2>/dev/null || true
 
-# 배포
-gcloud functions deploy $FUNCTION_NAME \
+# 배포 (기본 서비스 계정 프롬프트 건너뛰기)
+echo "Y" | gcloud functions deploy $FUNCTION_NAME \
     --runtime=python311 \
     --region=$REGION \
     --source=$SOURCE_DIR \
@@ -308,7 +308,8 @@ gcloud functions deploy $FUNCTION_NAME \
     --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID}" \
     --memory=256MB \
     --timeout=60s \
-    --no-gen2
+    --no-gen2 \
+    --quiet
 
 if [ $? -eq 0 ]; then
     FUNCTION_URL="https://${REGION}-${PROJECT_ID}.cloudfunctions.net/${FUNCTION_NAME}"
