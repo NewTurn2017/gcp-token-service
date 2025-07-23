@@ -8,6 +8,7 @@ PROJECT_ID=$(gcloud config get-value project)
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
 COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+REGION="asia-northeast3"
 
 # API 활성화
 echo "🔌 API 활성화..."
@@ -27,9 +28,10 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --role="roles/storage.admin" --quiet
 
 # Compute Engine 기본 서비스 계정에 Storage 권한 부여
+# storage.objectViewer가 충분하지 않으므로 storage.objectAdmin 권한 부여
 gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member="serviceAccount:${COMPUTE_SA}" \
-  --role="roles/storage.objectViewer" --quiet
+  --role="roles/storage.objectAdmin" --quiet
 
 # Vertex AI 사용을 위한 권한 추가
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -41,8 +43,15 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 # Cloud Run 서비스 계정은 아직 존재하지 않을 수 있으므로 제거
 
+# 추가로 Cloud Build 소스 버킷에 대한 권한 부여
+echo "🔐 Cloud Build 소스 버킷 권한 설정..."
+# Cloud Build가 사용하는 소스 버킷에 대한 권한 부여
+BUCKET_NAME="run-sources-${PROJECT_ID}-${REGION}"
+gsutil iam ch serviceAccount:${COMPUTE_SA}:objectViewer gs://${BUCKET_NAME} 2>/dev/null || true
+
 # 대기
-sleep 10
+echo "⏳ 권한이 전파되도록 30초 대기..."
+sleep 30
 
 # 소스 준비 및 배포
 echo "🚀 배포 중..."
