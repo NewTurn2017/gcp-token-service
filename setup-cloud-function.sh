@@ -13,14 +13,36 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# TTY 리다이렉션으로 대화형 입력 활성화
+exec < /dev/tty
+
 # 1. 프로젝트 ID 확인 또는 입력
-if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+echo "📋 Google Cloud 프로젝트 설정"
+echo "============================="
+echo ""
+
+# 현재 프로젝트 확인
+CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
+if [ ! -z "$CURRENT_PROJECT" ]; then
+    echo -e "현재 프로젝트: ${GREEN}$CURRENT_PROJECT${NC}"
+    echo -n "이 프로젝트를 사용하시겠습니까? (Y/n): "
+    read USE_CURRENT
+    if [[ ! "$USE_CURRENT" =~ ^[Nn]$ ]]; then
+        PROJECT_ID=$CURRENT_PROJECT
+    fi
 fi
 
+# 프로젝트 ID 입력
 if [ -z "$PROJECT_ID" ]; then
+    echo ""
     echo -e "${YELLOW}Google Cloud 프로젝트 ID를 입력하세요:${NC}"
-    read -p "Project ID: " PROJECT_ID
+    echo -n "Project ID: "
+    read PROJECT_ID
+    
+    if [ -z "$PROJECT_ID" ]; then
+        echo -e "${RED}❌ 프로젝트 ID가 필요합니다${NC}"
+        exit 1
+    fi
     
     # 프로젝트 설정
     gcloud config set project $PROJECT_ID
@@ -103,19 +125,37 @@ echo ""
 echo "📊 Google Sheets 설정"
 echo "===================="
 echo ""
-echo -e "${YELLOW}Google Sheets를 준비해주세요:${NC}"
-echo "1. 새 스프레드시트 생성: https://sheets.google.com"
-echo "2. 공유 버튼 클릭"
-echo "3. 다음 이메일 추가: ${SERVICE_ACCOUNT_EMAIL}"
-echo "4. '편집자' 권한 부여"
-echo "5. URL에서 스프레드시트 ID 복사"
-echo "   (https://docs.google.com/spreadsheets/d/ID_HERE/edit)"
-echo ""
-read -p "스프레드시트 ID 입력: " SPREADSHEET_ID
+
+# Google Sheets가 이미 있는지 확인
+if [ ! -z "$SPREADSHEET_ID" ]; then
+    echo -e "기존 스프레드시트 ID: ${GREEN}$SPREADSHEET_ID${NC}"
+    echo -n "이 스프레드시트를 사용하시겠습니까? (Y/n): "
+    read USE_EXISTING
+    if [[ "$USE_EXISTING" =~ ^[Nn]$ ]]; then
+        SPREADSHEET_ID=""
+    fi
+fi
 
 if [ -z "$SPREADSHEET_ID" ]; then
-    echo -e "${RED}❌ 스프레드시트 ID가 필요합니다${NC}"
-    exit 1
+    echo ""
+    echo -e "${YELLOW}새 Google Sheets를 설정해주세요:${NC}"
+    echo ""
+    echo "📝 단계별 안내:"
+    echo "1. 새 스프레드시트 생성: https://sheets.google.com"
+    echo "2. 상단의 '공유' 버튼 클릭"
+    echo "3. 다음 이메일 추가: ${GREEN}${SERVICE_ACCOUNT_EMAIL}${NC}"
+    echo "4. 권한: '편집자' 선택"
+    echo "5. '무시하고 공유' 클릭 (경고가 나타나면)"
+    echo "6. URL에서 스프레드시트 ID 복사:"
+    echo "   https://docs.google.com/spreadsheets/d/${YELLOW}ID_HERE${NC}/edit"
+    echo ""
+    echo -n "스프레드시트 ID 입력: "
+    read SPREADSHEET_ID
+    
+    if [ -z "$SPREADSHEET_ID" ]; then
+        echo -e "${RED}❌ 스프레드시트 ID가 필요합니다${NC}"
+        exit 1
+    fi
 fi
 
 echo -e "${GREEN}✅ 스프레드시트 ID: $SPREADSHEET_ID${NC}"
@@ -142,6 +182,16 @@ echo ""
 echo "☁️  Cloud Function 배포 중..."
 FUNCTION_NAME="veo-token-updater"
 
+# 서비스 계정 JSON을 base64로 인코딩하여 특수 문자 문제 해결
+SERVICE_ACCOUNT_JSON_BASE64=$(echo "$SERVICE_ACCOUNT_JSON" | base64 -w 0)
+
+# 환경 변수 파일 생성
+ENV_FILE="/tmp/cloud-function-env.yaml"
+cat > $ENV_FILE << EOF
+SERVICE_ACCOUNT_JSON: '$SERVICE_ACCOUNT_JSON'
+SPREADSHEET_ID: '$SPREADSHEET_ID'
+EOF
+
 gcloud functions deploy $FUNCTION_NAME \
     --gen2 \
     --runtime=python311 \
@@ -150,10 +200,13 @@ gcloud functions deploy $FUNCTION_NAME \
     --entry-point=update_token \
     --trigger-http \
     --allow-unauthenticated \
-    --set-env-vars="SERVICE_ACCOUNT_JSON='${SERVICE_ACCOUNT_JSON}',SPREADSHEET_ID=${SPREADSHEET_ID}" \
+    --env-vars-file=$ENV_FILE \
     --memory=256MB \
     --timeout=60s \
     --quiet
+
+# 임시 환경 변수 파일 삭제
+rm -f $ENV_FILE
 
 # Function URL 가져오기
 FUNCTION_URL=$(gcloud functions describe $FUNCTION_NAME --region=$REGION --gen2 --format="value(serviceConfig.uri)")
