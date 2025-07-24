@@ -9,7 +9,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(# 스크립트에서 echo 명령 중 색상 코드를 사용하지만 -e 플래그가 없는 라인 찾기\ngrep -n ''echo \"\".*\\${\\(RED\\|GREEN\\|YELLOW\\|BLUE\\|NC\\)}'' /Users/jaehyunjang/claude/gcp-token-service/setup-cloud-function-interactive.sh | grep -v ''echo -e'')",
-      "WebFetch(domain:cloud.google.com)"
+      "WebFetch(domain:cloud.google.com)",
+      "Bash(rm:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
