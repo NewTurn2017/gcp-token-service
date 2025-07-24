@@ -38,12 +38,15 @@ fi
 
 # 3. 권한 부여
 echo "🔐 권한 부여..."
-for role in "roles/aiplatform.user" "roles/editor"; do
+for role in "roles/aiplatform.user" "roles/editor" "roles/sheets.editor"; do
     gcloud projects add-iam-policy-binding $PROJECT_ID \
         --member="serviceAccount:${SA_EMAIL}" \
         --role="$role" \
         --quiet >/dev/null 2>&1
 done
+
+# Cloud Scheduler 서비스 계정 준비
+SCHEDULER_SA="service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
 
 # 4. 키 생성
 KEY_FILE="$HOME/veo-key.json"
@@ -285,6 +288,22 @@ else
     FUNCTION_URL=$(gcloud functions describe $FUNCTION_NAME --region=$REGION --format="value(httpsTrigger.url)")
 fi
 
+# Cloud Function 호출 권한 부여
+echo ""
+echo "🔓 Cloud Function 접근 권한 설정..."
+gcloud functions add-iam-policy-binding $FUNCTION_NAME \
+    --region=$REGION \
+    --member="serviceAccount:${SCHEDULER_SA}" \
+    --role="roles/cloudfunctions.invoker" \
+    --quiet 2>/dev/null || {
+    # Gen2인 경우 Cloud Run 권한
+    gcloud run services add-iam-policy-binding $FUNCTION_NAME \
+        --region=$REGION \
+        --member="serviceAccount:${SCHEDULER_SA}" \
+        --role="roles/run.invoker" \
+        --quiet 2>/dev/null || true
+}
+
 # 8. Cloud Scheduler 설정
 echo ""
 echo "⏰ 자동 실행 설정..."
@@ -294,6 +313,7 @@ gcloud scheduler jobs create http veo-token-refresh \
     --uri=$FUNCTION_URL \
     --http-method=GET \
     --time-zone="Asia/Seoul" \
+    --oidc-service-account-email=$SCHEDULER_SA \
     --quiet 2>/dev/null || true
 
 # 9. 완료

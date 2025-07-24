@@ -77,6 +77,11 @@ git clone https://github.com/NewTurn2017/gcp-token-service.git && cd gcp-token-s
 
 ## 🛠️ 문제 해결
 
+### 권한 문제 해결
+```bash
+./fix-permissions.sh
+```
+
 ### 토큰 갱신 모니터링
 ```bash
 ./monitor-scheduler.sh
@@ -91,6 +96,9 @@ git clone https://github.com/NewTurn2017/gcp-token-service.git && cd gcp-token-s
 ```bash
 gcloud scheduler jobs run veo-token-refresh --location=us-central1
 ```
+
+### Google Sheets 공유 확인
+스프레드시트에서 서비스 계정(`veo-token-sa@PROJECT_ID.iam.gserviceaccount.com`)이 편집자 권한을 가지고 있는지 확인하세요.
 
 ## 📝 주요 파일
 
