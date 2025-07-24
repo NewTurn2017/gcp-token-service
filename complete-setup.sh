@@ -100,10 +100,10 @@ sheets_creds = service_account.Credentials.from_service_account_file(
     scopes=['https://www.googleapis.com/auth/spreadsheets']
 )
 service = build('sheets', 'v4', credentials=sheets_creds)
-values = [['Last Updated', 'Access Token'], [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
+values = [['Project ID', 'Last Updated', 'Access Token'], ['$PROJECT_ID', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
 service.spreadsheets().values().update(
     spreadsheetId='$SPREADSHEET_ID',
-    range='A1:B2',
+    range='A1:C2',
     valueInputOption='RAW',
     body={'values': values}
 ).execute()
@@ -172,13 +172,13 @@ def update_token(request):
         
         service = build('sheets', 'v4', credentials=sheets_creds)
         values = [
-            ['Last Updated', 'Access Token'],
-            [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]
+            ['Project ID', 'Last Updated', 'Access Token'],
+            [os.environ.get('PROJECT_ID', 'Unknown'), datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]
         ]
         
         service.spreadsheets().values().update(
             spreadsheetId=os.environ.get('SPREADSHEET_ID'),
-            range='A1:B2',
+            range='A1:C2',
             valueInputOption='RAW',
             body={'values': values}
         ).execute()
@@ -220,7 +220,7 @@ if gcloud functions deploy $FUNCTION_NAME \
     --trigger-http \
     --allow-unauthenticated \
     --run-service-account=$SA_EMAIL \
-    --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID}" \
+    --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID},PROJECT_ID=${PROJECT_ID}" \
     --memory=256MB \
     --quiet 2>/dev/null; then
     echo "✅ Gen2 배포 성공"
@@ -235,7 +235,7 @@ else
         --trigger-http \
         --allow-unauthenticated \
         --service-account=$SA_EMAIL \
-        --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID}" \
+        --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID},PROJECT_ID=${PROJECT_ID}" \
         --memory=256MB \
         --timeout=60s \
         --no-gen2 \
@@ -264,8 +264,9 @@ echo ""
 echo "🎉 n8n에서 사용하기:"
 echo "1. HTTP Request 노드 추가"
 echo "2. Method: GET"
-echo "3. URL: https://sheets.googleapis.com/v4/spreadsheets/$SPREADSHEET_ID/values/B2"
+echo "3. URL: https://sheets.googleapis.com/v4/spreadsheets/$SPREADSHEET_ID/values/C2"
 echo "4. Authentication: API Key (AIzaSy...)"
+echo "   (토큰은 C2 셀, 프로젝트 ID는 A2 셀에 저장됩니다)"
 echo ""
 
 # 정리

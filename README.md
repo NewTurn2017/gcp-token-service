@@ -39,8 +39,13 @@ gcloud config set project YOUR_PROJECT_ID
 
 1. HTTP Request 노드 추가
 2. Method: GET
-3. URL: `https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/B2`
+3. URL: `https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/C2`
 4. Authentication: API Key
+
+### Google Sheets 구조
+- A열: Project ID
+- B열: Last Updated (timestamp)
+- C열: Access Token
 
 ## 🔧 문제 해결
 
