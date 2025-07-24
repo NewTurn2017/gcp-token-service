@@ -111,14 +111,26 @@ print("✅ Sheets 업데이트 성공!")
 EOF
 
 echo "Python 패키지 설치 중..."
-pip3 install -q google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client || {
+# Python 버전 확인
+if command -v python3 &> /dev/null; then
+    PY_CMD="python3"
+    PIP_CMD="pip3"
+elif command -v python &> /dev/null; then
+    PY_CMD="python"
+    PIP_CMD="pip"
+else
+    echo "❌ Python이 설치되어 있지 않습니다"
+    exit 1
+fi
+
+$PIP_CMD install -q google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client || {
     echo "⚠️  Python 패키지 설치 실패. 수동으로 설치해주세요:"
-    echo "pip3 install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client"
+    echo "$PIP_CMD install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client"
     exit 1
 }
 
 echo "테스트 실행 중..."
-python3 /tmp/test-veo.py || {
+$PY_CMD /tmp/test-veo.py || {
     echo "❌ 테스트 실패. Google Sheets 공유 설정을 확인해주세요"
     exit 1
 }
@@ -183,8 +195,14 @@ google-auth-httplib2==0.*
 google-api-python-client==2.*
 EOF
 
-# Base64 인코딩
-SERVICE_ACCOUNT_JSON_BASE64=$(cat "$KEY_FILE" | base64 -w 0)
+# Base64 인코딩 (OS별 처리)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    SERVICE_ACCOUNT_JSON_BASE64=$(cat "$KEY_FILE" | base64)
+else
+    # Linux
+    SERVICE_ACCOUNT_JSON_BASE64=$(cat "$KEY_FILE" | base64 -w 0)
+fi
 
 # 배포
 FUNCTION_NAME="veo-token-updater"
