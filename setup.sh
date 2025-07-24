@@ -1,5 +1,5 @@
 #!/bin/bash
-# Veo 3.0 Token Service 완전 자동 설치 스크립트
+# Veo 3.0 토큰 자동화 시스템 - 최종 설치 스크립트
 
 echo "🚀 Veo 3.0 토큰 자동화 시스템 설치"
 echo "================================="
@@ -19,7 +19,6 @@ echo ""
 
 # 1. API 활성화
 echo "📋 API 활성화 중..."
-set +e  # API 활성화 중 오류 무시
 gcloud services enable \
     cloudfunctions.googleapis.com \
     cloudbuild.googleapis.com \
@@ -27,7 +26,6 @@ gcloud services enable \
     sheets.googleapis.com \
     cloudscheduler.googleapis.com \
     --quiet
-set -e  # 다시 오류 체크 활성화
 
 # 2. 서비스 계정 생성
 echo "🔑 서비스 계정 설정..."
@@ -61,17 +59,15 @@ echo "1. 새 스프레드시트 생성: https://sheets.google.com"
 echo "2. 주소창에서 /d/와 /edit 사이의 ID 복사"
 echo "3. 공유 → $SA_EMAIL 추가 (편집자 권한)"
 echo ""
+
 # 대화형 입력 처리
 echo -n "스프레드시트 ID: "
 if [ -t 0 ]; then
-    # 일반 실행
     read SPREADSHEET_ID
 else
-    # 파이프 실행 - /dev/tty에서 직접 읽기
     read SPREADSHEET_ID < /dev/tty
 fi
 
-# ID 확인
 if [ -z "$SPREADSHEET_ID" ]; then
     echo "❌ 스프레드시트 ID가 필요합니다"
     exit 1
@@ -79,14 +75,14 @@ fi
 
 echo "입력된 ID: $SPREADSHEET_ID"
 
-# 6. 테스트
+# 6. 연결 테스트
 echo ""
 echo "🧪 연결 테스트 준비 중..."
 cat > /tmp/test-veo.py << EOF
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 credentials = service_account.Credentials.from_service_account_file(
     '$KEY_FILE',
@@ -100,9 +96,11 @@ sheets_creds = service_account.Credentials.from_service_account_file(
     scopes=['https://www.googleapis.com/auth/spreadsheets']
 )
 service = build('sheets', 'v4', credentials=sheets_creds)
-from datetime import datetime, timezone, timedelta
+
 KST = timezone(timedelta(hours=9))
-values = [['Project ID', 'Last Updated (KST)', 'Access Token'], ['$PROJECT_ID', datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
+values = [['Project ID', 'Last Updated (KST)', 'Access Token'], 
+          ['$PROJECT_ID', datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
+
 service.spreadsheets().values().update(
     spreadsheetId='$SPREADSHEET_ID',
     range='A1:C2',
@@ -113,21 +111,16 @@ print("✅ Sheets 업데이트 성공!")
 EOF
 
 echo "Python 패키지 설치 중..."
-# Python 버전 확인
 if command -v python3 &> /dev/null; then
     PY_CMD="python3"
     PIP_CMD="pip3"
-elif command -v python &> /dev/null; then
+else
     PY_CMD="python"
     PIP_CMD="pip"
-else
-    echo "❌ Python이 설치되어 있지 않습니다"
-    exit 1
 fi
 
 $PIP_CMD install -q google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client || {
-    echo "⚠️  Python 패키지 설치 실패. 수동으로 설치해주세요:"
-    echo "$PIP_CMD install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client"
+    echo "⚠️  Python 패키지 설치 실패"
     exit 1
 }
 
@@ -152,42 +145,88 @@ from googleapiclient.discovery import build
 from datetime import datetime, timezone, timedelta
 import os
 import base64
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @functions_framework.http
 def update_token(request):
     headers = {'Access-Control-Allow-Origin': '*'}
     
+    if request.method == 'OPTIONS':
+        return ('', 204, headers)
+    
+    max_retries = 3
+    retry_delay = 2
+    
     try:
         service_account_json = base64.b64decode(os.environ.get('SERVICE_ACCOUNT_JSON_BASE64')).decode('utf-8')
         service_account_info = json.loads(service_account_json)
         
-        credentials = service_account.Credentials.from_service_account_info(
-            service_account_info,
-            scopes=['https://www.googleapis.com/auth/cloud-platform']
-        )
-        credentials.refresh(Request())
+        # 토큰 생성 (재시도 포함)
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"토큰 생성 시도 {attempt + 1}/{max_retries}")
+                credentials = service_account.Credentials.from_service_account_info(
+                    service_account_info,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
+                credentials.refresh(Request())
+                token = credentials.token
+                logger.info(f"토큰 생성 성공: {len(token)} 문자")
+                break
+            except Exception as e:
+                logger.error(f"토큰 생성 실패 (시도 {attempt + 1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    raise
         
-        sheets_creds = service_account.Credentials.from_service_account_info(
-            service_account_info,
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
-        
-        service = build('sheets', 'v4', credentials=sheets_creds)
-        KST = timezone(timedelta(hours=9))
-        values = [
-            ['Project ID', 'Last Updated (KST)', 'Access Token'],
-            [os.environ.get('PROJECT_ID', 'Unknown'), datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S'), credentials.token]
-        ]
-        
-        service.spreadsheets().values().update(
-            spreadsheetId=os.environ.get('SPREADSHEET_ID'),
-            range='A1:C2',
-            valueInputOption='RAW',
-            body={'values': values}
-        ).execute()
-        
-        return (json.dumps({'status': 'success', 'timestamp': datetime.now().isoformat()}), 200, headers)
+        # Sheets 업데이트 (재시도 포함)
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Sheets 업데이트 시도 {attempt + 1}/{max_retries}")
+                sheets_creds = service_account.Credentials.from_service_account_info(
+                    service_account_info,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets']
+                )
+                
+                service = build('sheets', 'v4', credentials=sheets_creds, cache_discovery=False)
+                KST = timezone(timedelta(hours=9))
+                current_time = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
+                
+                values = [
+                    ['Project ID', 'Last Updated (KST)', 'Access Token'],
+                    [os.environ.get('PROJECT_ID', 'Unknown'), current_time, token]
+                ]
+                
+                result = service.spreadsheets().values().update(
+                    spreadsheetId=os.environ.get('SPREADSHEET_ID'),
+                    range='A1:C2',
+                    valueInputOption='RAW',
+                    body={'values': values}
+                ).execute()
+                
+                logger.info(f"Sheets 업데이트 성공: {result.get('updatedCells')} 셀")
+                
+                return (json.dumps({
+                    'status': 'success',
+                    'timestamp': current_time,
+                    'cells_updated': result.get('updatedCells')
+                }), 200, headers)
+                
+            except Exception as e:
+                logger.error(f"Sheets 업데이트 실패 (시도 {attempt + 1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                else:
+                    raise
+                    
     except Exception as e:
+        logger.error(f"치명적 오류: {str(e)}", exc_info=True)
         return (json.dumps({'error': str(e)}), 500, headers)
 EOF
 
@@ -200,10 +239,8 @@ EOF
 
 # Base64 인코딩 (OS별 처리)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
     SERVICE_ACCOUNT_JSON_BASE64=$(cat "$KEY_FILE" | base64)
 else
-    # Linux
     SERVICE_ACCOUNT_JSON_BASE64=$(cat "$KEY_FILE" | base64 -w 0)
 fi
 
@@ -211,7 +248,6 @@ fi
 FUNCTION_NAME="veo-token-updater"
 REGION="us-central1"
 
-# Gen2 우선 시도, 실패시 Gen1
 echo ""
 echo "첫 번째 시도: Gen2 Cloud Functions..."
 if gcloud functions deploy $FUNCTION_NAME \
@@ -224,7 +260,9 @@ if gcloud functions deploy $FUNCTION_NAME \
     --allow-unauthenticated \
     --run-service-account=$SA_EMAIL \
     --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID},PROJECT_ID=${PROJECT_ID}" \
-    --memory=256MB \
+    --memory=512MB \
+    --timeout=120s \
+    --max-instances=100 \
     --quiet 2>/dev/null; then
     echo "✅ Gen2 배포 성공"
     FUNCTION_URL=$(gcloud functions describe $FUNCTION_NAME --region=$REGION --gen2 --format="value(serviceConfig.uri)")
@@ -239,8 +277,9 @@ else
         --allow-unauthenticated \
         --service-account=$SA_EMAIL \
         --set-env-vars="SERVICE_ACCOUNT_JSON_BASE64=${SERVICE_ACCOUNT_JSON_BASE64},SPREADSHEET_ID=${SPREADSHEET_ID},PROJECT_ID=${PROJECT_ID}" \
-        --memory=256MB \
-        --timeout=60s \
+        --memory=512MB \
+        --timeout=120s \
+        --max-instances=100 \
         --no-gen2 \
         --quiet
     FUNCTION_URL=$(gcloud functions describe $FUNCTION_NAME --region=$REGION --format="value(httpsTrigger.url)")
@@ -254,6 +293,7 @@ gcloud scheduler jobs create http veo-token-refresh \
     --schedule="*/30 * * * *" \
     --uri=$FUNCTION_URL \
     --http-method=GET \
+    --time-zone="Asia/Seoul" \
     --quiet 2>/dev/null || true
 
 # 9. 완료
@@ -262,7 +302,7 @@ echo "✅ 설치 완료!"
 echo "=================="
 echo "📊 Google Sheets: https://docs.google.com/spreadsheets/d/$SPREADSHEET_ID"
 echo "☁️  Function URL: $FUNCTION_URL"
-echo "⏰ 매시간 자동 실행 설정됨"
+echo "⏰ 30분마다 자동 실행 (KST)"
 echo ""
 echo "🎉 n8n에서 사용하기:"
 echo "1. HTTP Request 노드 추가"
