@@ -100,7 +100,9 @@ sheets_creds = service_account.Credentials.from_service_account_file(
     scopes=['https://www.googleapis.com/auth/spreadsheets']
 )
 service = build('sheets', 'v4', credentials=sheets_creds)
-values = [['Project ID', 'Last Updated', 'Access Token'], ['$PROJECT_ID', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
+from datetime import datetime, timezone, timedelta
+KST = timezone(timedelta(hours=9))
+values = [['Project ID', 'Last Updated (KST)', 'Access Token'], ['$PROJECT_ID', datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S'), credentials.token]]
 service.spreadsheets().values().update(
     spreadsheetId='$SPREADSHEET_ID',
     range='A1:C2',
@@ -147,7 +149,7 @@ import functions_framework
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import base64
 
@@ -171,9 +173,10 @@ def update_token(request):
         )
         
         service = build('sheets', 'v4', credentials=sheets_creds)
+        KST = timezone(timedelta(hours=9))
         values = [
-            ['Project ID', 'Last Updated', 'Access Token'],
-            [os.environ.get('PROJECT_ID', 'Unknown'), datetime.now().strftime('%Y-%m-%d %H:%M:%S'), credentials.token]
+            ['Project ID', 'Last Updated (KST)', 'Access Token'],
+            [os.environ.get('PROJECT_ID', 'Unknown'), datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S'), credentials.token]
         ]
         
         service.spreadsheets().values().update(
@@ -248,7 +251,7 @@ echo ""
 echo "⏰ 자동 실행 설정..."
 gcloud scheduler jobs create http veo-token-refresh \
     --location=$REGION \
-    --schedule="0 * * * *" \
+    --schedule="*/30 * * * *" \
     --uri=$FUNCTION_URL \
     --http-method=GET \
     --quiet 2>/dev/null || true

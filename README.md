@@ -16,7 +16,8 @@ git clone https://github.com/NewTurn2017/gcp-token-service.git && cd gcp-token-s
 
 - Veo 3.0 API용 액세스 토큰 자동 생성
 - Google Sheets에 토큰 자동 저장
-- 매시간 자동 갱신 (Cloud Scheduler)
+- 30분마다 자동 갱신 (Cloud Scheduler)
+- 한국 시간(KST) 표시
 - n8n 통합 지원
 
 ## 📋 사전 요구사항
@@ -44,8 +45,15 @@ gcloud config set project YOUR_PROJECT_ID
 
 ### Google Sheets 구조
 - A열: Project ID
-- B열: Last Updated (timestamp)
+- B열: Last Updated (KST 한국시간)
 - C열: Access Token
+
+## 🔄 스케줄러 업데이트
+
+기존 스케줄러를 30분 주기로 변경:
+```bash
+./update-scheduler.sh
+```
 
 ## 🔧 문제 해결
 
