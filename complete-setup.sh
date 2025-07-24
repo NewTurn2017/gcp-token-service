@@ -61,15 +61,14 @@ echo "1. 새 스프레드시트 생성: https://sheets.google.com"
 echo "2. 주소창에서 /d/와 /edit 사이의 ID 복사"
 echo "3. 공유 → $SA_EMAIL 추가 (편집자 권한)"
 echo ""
-# 대화형 입력을 위해 TTY 확인
+# 대화형 입력 처리
+echo -n "스프레드시트 ID: "
 if [ -t 0 ]; then
-    echo -n "스프레드시트 ID: "
+    # 일반 실행
     read SPREADSHEET_ID
 else
-    # 파이프로 실행 중인 경우 TTY 리다이렉션
-    exec < /dev/tty
-    echo -n "스프레드시트 ID: "
-    read SPREADSHEET_ID
+    # 파이프 실행 - /dev/tty에서 직접 읽기
+    read SPREADSHEET_ID < /dev/tty
 fi
 
 # ID 확인
@@ -78,9 +77,11 @@ if [ -z "$SPREADSHEET_ID" ]; then
     exit 1
 fi
 
+echo "입력된 ID: $SPREADSHEET_ID"
+
 # 6. 테스트
 echo ""
-echo "🧪 연결 테스트..."
+echo "🧪 연결 테스트 준비 중..."
 cat > /tmp/test-veo.py << EOF
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
@@ -109,12 +110,14 @@ service.spreadsheets().values().update(
 print("✅ Sheets 업데이트 성공!")
 EOF
 
+echo "Python 패키지 설치 중..."
 pip3 install -q google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client || {
     echo "⚠️  Python 패키지 설치 실패. 수동으로 설치해주세요:"
     echo "pip3 install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client"
     exit 1
 }
 
+echo "테스트 실행 중..."
 python3 /tmp/test-veo.py || {
     echo "❌ 테스트 실패. Google Sheets 공유 설정을 확인해주세요"
     exit 1
